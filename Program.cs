@@ -1,9 +1,9 @@
-﻿using HtmlAgilityPack;
-using PuppeteerSharp;
-using System;
-using System.Threading.Tasks;
-
-
+﻿using PuppeteerSharp;
+using PuppeteerExtraSharp;
+using PuppeteerExtraSharp.Plugins.ExtraStealth;
+using PuppeteerExtraSharp.Plugins.AnonymizeUa;
+using PuppeteerExtraSharp.Plugins.ExtraStealth.Evasions;
+using System.ComponentModel.DataAnnotations;
 
 namespace SimpleWebScraper
 {
@@ -20,27 +20,35 @@ namespace SimpleWebScraper
 
         static async Task Main(string[] args)
         {
-            //await new BrowserFetcher().DownloadAsync();
 
-            var browser = await Puppeteer.LaunchAsync(new LaunchOptions() {
+            string mainLink = "https://gg.deals";
+
+            var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+            {
                 DefaultViewport = new ViewPortOptions() { Width = 1280 },
-                HeadlessMode = 0,
+                Headless = false
             });
 
             var page = await browser.NewPageAsync();
             await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36");
-            await page.GoToAsync("https://gg.deals");
+            await page.GoToAsync(mainLink,timeout: 0);
 
-            await ChangeLanguage(page);
-       
+            await ChangeLanguage(page);       
+
             try
             {
-                await page.GoToAsync("https://gg.deals/search/?title=Raidou");
+                await page.GoToAsync("https://gg.deals/search/?title=Raidou", timeout: 0);
             }
             catch (NavigationException ex)
             {
                 Console.WriteLine(ex.Message);
             }
+
+            await GetGameList(page);
+
+            await GetStorePrices(page);
+
+            
 
             //await browser.CloseAsync();
 
@@ -168,14 +176,59 @@ namespace SimpleWebScraper
 
                 string languageText = await (await languageButton.GetPropertyAsync("textContent")).JsonValueAsync<string>();
 
-                Console.WriteLine(languageText);
-
                 if (languageText.Trim() == "United States")
                 {
+                    Console.WriteLine("Language set to US.");
                     await languageButton.ClickAsync();
+                    //wait for language change before swapping pages, otherwise net::ERR_ABORT will occur
+                    Thread.Sleep(1500);
                 }
 
             }
+        }
+
+        static async Task GetGameList(IPage page)
+        {
+            var games = await page.QuerySelectorAllAsync(".game-item");
+
+            foreach (var game in games)
+            {
+                var gameTitleElement = await game.QuerySelectorAsync(".title-inner");
+
+                string gameTitle = await (await gameTitleElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
+
+                if (gameTitle.Contains("RAIDOU Remastered"))
+                {
+                    var link = await game.QuerySelectorAsync(".full-link");
+
+                    string linkText = await (await link.GetPropertyAsync("href")).JsonValueAsync<string>();
+
+                    await page.GoToAsync(linkText);
+                    break;
+                }
+            }
+        }
+
+        static async Task GetStorePrices(IPage page)
+        {
+            await page.ClickAsync(".btn-game-see-more");
+            Thread.Sleep(1500);
+
+            var games = await page.QuerySelectorAllAsync(".game-list-item");
+
+            Console.WriteLine(games.Length);
+
+            foreach (var game in games)
+            {
+                var type = await game.EvaluateFunctionAsync<string>("game => game.getAttribute('data-shop-name')");
+
+                var priceElement = await game.QuerySelectorAsync(".price-inner");
+
+                string price = await (await priceElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
+
+                Console.WriteLine($"Store: {type}\nPrice: {price}");
+            }
+
         }
     }
 }
