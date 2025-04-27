@@ -4,6 +4,7 @@ using PuppeteerExtraSharp.Plugins.ExtraStealth;
 using PuppeteerExtraSharp.Plugins.AnonymizeUa;
 using PuppeteerExtraSharp.Plugins.ExtraStealth.Evasions;
 using System.ComponentModel.DataAnnotations;
+using SimpleWebScraper.Classes;
 
 namespace SimpleWebScraper
 {
@@ -47,8 +48,6 @@ namespace SimpleWebScraper
             await GetGameList(page);
 
             await GetStorePrices(page);
-
-            
 
             //await browser.CloseAsync();
 
@@ -191,28 +190,59 @@ namespace SimpleWebScraper
         {
             var games = await page.QuerySelectorAllAsync(".game-item");
 
+            List<Game> gameSelection = new();
+
             foreach (var game in games)
             {
                 var gameTitleElement = await game.QuerySelectorAsync(".title-inner");
 
                 string gameTitle = await (await gameTitleElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
 
-                if (gameTitle.Contains("RAIDOU Remastered"))
-                {
-                    var link = await game.QuerySelectorAsync(".full-link");
+                var link = await game.QuerySelectorAsync(".full-link");
 
-                    string linkText = await (await link.GetPropertyAsync("href")).JsonValueAsync<string>();
+                string linkText = await (await link.GetPropertyAsync("href")).JsonValueAsync<string>();
 
-                    await page.GoToAsync(linkText);
-                    break;
-                }
+                gameSelection.Add(new Game(gameTitle, linkText));
             }
+
+            foreach (var game in gameSelection)
+            {
+                Console.WriteLine(game.Name);
+            }
+
+            int index = 0;
+
+            while (true)
+            {
+                Console.Write("Pick an Option: ");
+                string userInput = Console.ReadLine();
+
+                if (!Int32.TryParse(userInput, out index))
+                {
+                    Console.WriteLine("Wrong input");
+                }
+                if (index > gameSelection.Count)
+                {
+                    Console.WriteLine("Invalid Index");
+                }
+                break;
+            }
+
+            await page.GoToAsync(gameSelection[index-1].Link);
+
         }
 
         static async Task GetStorePrices(IPage page)
         {
-            await page.ClickAsync(".btn-game-see-more");
-            Thread.Sleep(1500);
+            var showMoreButton = await page.QuerySelectorAsync(".btn-game-see-more");
+            if (showMoreButton != null)
+            {
+                await showMoreButton.ClickAsync();
+                await showMoreButton.ClickAsync();
+                Thread.Sleep(2000);
+            }
+            
+            
 
             var games = await page.QuerySelectorAllAsync(".game-list-item");
 
@@ -221,14 +251,16 @@ namespace SimpleWebScraper
             foreach (var game in games)
             {
                 var type = await game.EvaluateFunctionAsync<string>("game => game.getAttribute('data-shop-name')");
+                //excludes stuff like dlc, packs, etc.
+                if (!string.IsNullOrWhiteSpace(type))
+                {
+                    var priceElement = await game.QuerySelectorAsync(".price-inner");
 
-                var priceElement = await game.QuerySelectorAsync(".price-inner");
+                    string price = await (await priceElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
 
-                string price = await (await priceElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
-
-                Console.WriteLine($"Store: {type}\nPrice: {price}");
+                    Console.WriteLine($"Store: {type}\nPrice: {price}");
+                }
             }
-
         }
     }
 }
