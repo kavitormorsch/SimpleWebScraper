@@ -10,15 +10,6 @@ namespace SimpleWebScraper
 {
     internal class Program
     {
-        public class Product
-        {
-            public string? Url { get; set; }
-            public string? Image { get; set; }
-            public string? Name { get; set; }
-            public string? Price { get; set; }
-
-        }
-
         static async Task Main(string[] args)
         {
 
@@ -34,11 +25,15 @@ namespace SimpleWebScraper
             await page.SetUserAgentAsync("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36");
             await page.GoToAsync(mainLink,timeout: 0);
 
-            await ChangeLanguage(page);       
+            await ChangeLanguage(page);
+
+            Console.Write("What game are you looking for? ");
+            string gameToSearch = Console.ReadLine();
+            gameToSearch = gameToSearch.Trim().ToLower().Replace(" ", "+");
 
             try
             {
-                await page.GoToAsync("https://gg.deals/search/?title=Raidou", timeout: 0);
+                await page.GoToAsync($"https://gg.deals/search/?title={gameToSearch}", timeout: 0);
             }
             catch (NavigationException ex)
             {
@@ -50,113 +45,6 @@ namespace SimpleWebScraper
             await GetStorePrices(page);
 
             //await browser.CloseAsync();
-
-            //var resultList = await page.
-
-
-            /*
-            var web = new HtmlWeb();
-
-            var document = web.LoadFromBrowser();
-
-            
-            string ggDealsBaseLink = "https://gg.deals";
-
-            string searchWord = "Raidou";
-
-            var document = web.Load(ggDealsBaseLink + "/search/?title=" + searchWord);
-
-            var resultList = document.DocumentNode.QuerySelectorAll(".game-item");
-
-            var selectedGame = new Product();
-
-            foreach (var result in resultList)
-            {
-                var gameTitle = HtmlEntity.DeEntitize(result.QuerySelector(".game-info-wrapper").QuerySelector(".game-info-column").QuerySelector(".game-info-title-wrapper").QuerySelector(".game-info-title").QuerySelector("a").InnerText);
-                Console.WriteLine(gameTitle);
-                var url = HtmlEntity.DeEntitize(result.QuerySelector("a").Attributes["href"].Value);
-
-                selectedGame.Name = gameTitle;
-                selectedGame.Url = "/game/raidou-remastered-the-mystery-of-the-soulless-army/";
-            }
-
-            document = web.Load(ggDealsBaseLink + selectedGame.Url);
-
-            Console.WriteLine(ggDealsBaseLink + selectedGame.Url);
-
-            var storelist = document.DocumentNode.QuerySelectorAll(".similar-deals-container");
-
-            foreach (var store in storelist)
-            {
-                Console.WriteLine(store.QuerySelector(".game-item").Attributes[3].Value);
-                Console.WriteLine(store.QuerySelector(".price-inner").InnerText);
-            }
-
-            
-            var products = new List<Product>();
-
-            var firstPageToScrape = "https://www.scrapingcourse.com/ecommerce/page/1";
-
-            var pagesDiscovered = new List<string>() {firstPageToScrape};
-
-            var pagesToScrape = new Queue<string>();
-
-            pagesToScrape.Enqueue(firstPageToScrape);
-
-            int i = 1;
-
-            int limit = 12;
-
-            while (pagesToScrape.Count != 0 && i < limit)
-            {
-                var currentPage = pagesToScrape.Dequeue();
-
-                var currentDocument = web.Load(currentPage);
-
-                var paginationHTMLElements = currentDocument.DocumentNode.QuerySelectorAll("a.page-numbers");
-
-                foreach (var paginationHTMLElement in paginationHTMLElements)
-                {
-                    var newPaginationLink = paginationHTMLElement.Attributes["href"].Value;
-
-                    if (!pagesDiscovered.Contains(newPaginationLink))
-                    {
-                        if (!pagesToScrape.Contains(newPaginationLink))
-                        {
-                            pagesToScrape.Enqueue(newPaginationLink);
-                        }
-                        pagesDiscovered.Add(newPaginationLink);
-                    }
-                }
-
-                var productHTMLElements = currentDocument.DocumentNode.QuerySelectorAll("li.product");
-
-                foreach (var productElement in productHTMLElements)
-                {
-                    var url = HtmlEntity.DeEntitize(productElement.QuerySelector("a").Attributes["href"].Value);
-                    var image = HtmlEntity.DeEntitize(productElement.QuerySelector("img").Attributes["src"].Value);
-                    var name = HtmlEntity.DeEntitize(productElement.QuerySelector("h2").InnerText);
-                    var price = HtmlEntity.DeEntitize(productElement.QuerySelector(".price").InnerText);
-                    var product = new Product() { Url = url, Image = image, Name = name, Price = price };
-
-                    products.Add(product);
-                }
-                i++;
-            }
-
-            foreach (Product item in products)
-            {
-                Console.WriteLine($"{item.Name}" +
-                    $"\n{item.Price}" +
-                    $"\n{item.Image}" +
-                    $"\n{item.Url}" +
-                    $"\n======================");
-
-            }
-
-            Console.WriteLine("Hello, World!");
-            */
-
 
         }
 
@@ -205,9 +93,9 @@ namespace SimpleWebScraper
                 gameSelection.Add(new Game(gameTitle, linkText));
             }
 
-            foreach (var game in gameSelection)
+            for(int i = 0; i < gameSelection.Count; i++)
             {
-                Console.WriteLine(game.Name);
+                Console.WriteLine($"{i+1}. {gameSelection[i].Name}");
             }
 
             int index = 0;
@@ -234,19 +122,29 @@ namespace SimpleWebScraper
 
         static async Task GetStorePrices(IPage page)
         {
-            var showMoreButton = await page.QuerySelectorAsync(".btn-game-see-more");
+            /*var showMoreButton = await page.QuerySelectorAsync(".btn-game-see-more");
             if (showMoreButton != null)
             {
                 await showMoreButton.ClickAsync();
                 await showMoreButton.ClickAsync();
                 Thread.Sleep(2000);
+            }*/
+            
+            var showMoreButton = await page.QuerySelectorAllAsync(".btn-game-see-more");
+
+            foreach (var button in showMoreButton)
+            {
+                await button.ClickAsync();
+                await button.ClickAsync();
+                Thread.Sleep(2000);
             }
-            
-            
+
 
             var games = await page.QuerySelectorAllAsync(".game-list-item");
 
             Console.WriteLine(games.Length);
+
+            int index = 1;
 
             foreach (var game in games)
             {
@@ -256,10 +154,15 @@ namespace SimpleWebScraper
                 {
                     var priceElement = await game.QuerySelectorAsync(".price-inner");
 
+                    priceElement ??= await game.QuerySelectorAsync(".price-text");
+
                     string price = await (await priceElement.GetPropertyAsync("textContent")).JsonValueAsync<string>();
 
-                    Console.WriteLine($"Store: {type}\nPrice: {price}");
+                    Console.WriteLine($"Store: {type} {index}\nPrice: {price}");
+                    //index++;
+                    continue;
                 }
+                //index++;
             }
         }
     }
