@@ -18,7 +18,8 @@ namespace SimpleWebScraper
             var browser = await Puppeteer.LaunchAsync(new LaunchOptions()
             {
                 DefaultViewport = new ViewPortOptions() { Width = 1280 },
-                Headless = false
+                Headless = true
+               
             });
 
             var page = await browser.NewPageAsync();
@@ -122,22 +123,15 @@ namespace SimpleWebScraper
 
         static async Task GetStorePrices(IPage page)
         {
-            /*var showMoreButton = await page.QuerySelectorAsync(".btn-game-see-more");
-            if (showMoreButton != null)
-            {
-                await showMoreButton.ClickAsync();
-                await showMoreButton.ClickAsync();
-                Thread.Sleep(2000);
-            }*/
-            
             var showMoreButton = await page.QuerySelectorAllAsync(".btn-game-see-more");
 
             foreach (var button in showMoreButton)
             {
-                await button.ClickAsync();
-                await button.ClickAsync();
+                await button.ClickAsync(new PuppeteerSharp.Input.ClickOptions(){Count = 2 });
                 Thread.Sleep(2000);
             }
+            
+            
 
 
             var games = await page.QuerySelectorAllAsync(".game-list-item");
